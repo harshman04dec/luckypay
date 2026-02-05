@@ -12,9 +12,11 @@ import org.slf4j.Logger;
 import org.slf4j.LoggerFactory;
 import org.springframework.stereotype.Service;
 
+import java.math.BigDecimal;
 import java.time.LocalDate;
 import java.time.YearMonth;
 import java.time.format.DateTimeFormatter;
+import java.util.List;
 
 @Service
 public class LoanService {
@@ -45,14 +47,18 @@ public class LoanService {
             log.info("Persisting loan data for account {}",
                     loanAccountNumber);
 
-        EmiDetailDto dueEmi = response.getEmiDetails().stream()
-                .filter(e -> e.isDueStatus() && !e.isPaidStatus())
-                .findFirst()
-                .orElseThrow();
+            List<EmiDetailDto> dueEmis = response.getEmiDetails().stream()
+                    .filter(e -> e.isDueStatus() && !e.isPaidStatus()).toList();
 
-        LoanAccount loan = new LoanAccount();
+        EmiDetailDto dueEmi = dueEmis.stream().findFirst().orElseThrow();
+        BigDecimal totalDueAmount = response.getEmiDetails().stream()
+                .filter(e -> e.isDueStatus() && !e.isPaidStatus())
+                .map(EmiDetailDto::getEmiAmount)
+                .reduce(BigDecimal.ZERO, BigDecimal::add);
+
+            LoanAccount loan = new LoanAccount();
         loan.setLoanAccountNumber(response.getLoanAccountNumber());
-        loan.setEmiAmount(dueEmi.getEmiAmount());
+        loan.setEmiAmount(totalDueAmount);
         loan.setDueDate(parseMonth(dueEmi.getMonth()));
 
         loanRepo.save(loan);
